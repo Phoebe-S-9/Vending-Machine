@@ -1,0 +1,991 @@
+//the code(slightly modified) with less comments cluttering
+//=========================================================================================================
+
+
+
+package cp213;
+
+import java.awt.Dimension;
+
+import javax.swing.JFrame;
+import javax.swing.WindowConstants;
+
+/**
+ * Main class for the Vending Machine.
+ * 
+ */
+public class A05Main { // check rough view, main,modle
+
+	public static void main(String[] args) {
+		VendModel model = new VendModel();
+		VendView vv = new VendView(model);
+		final JFrame frame = new JFrame();
+		frame.setContentPane(vv);
+		frame.setMinimumSize(new Dimension(100, 100));
+		frame.pack();
+		frame.setDefaultCloseOperation(WindowConstants.EXIT_ON_CLOSE);
+		frame.setVisible(true);
+	}
+
+}
+
+
+//=========================================================================================================
+
+package cp213;
+
+import java.text.DecimalFormat;
+
+public class Item {
+	private String name;
+	private double price;
+	private int stock; // stock left
+	private int stockBought;
+	private String code; // code to enter to buy item
+
+	/**
+	 * constructor
+	 */
+	public Item() {
+		this.name = "testItem";
+		this.price = 0;
+		this.stock = 0;
+
+		this.stockBought = 0;
+		this.code = "z1";
+	}
+
+	/**
+	 * constructor
+	 */
+	public Item(String name, double price, int stock, String code) {
+		this.name = name;
+		this.price = price;
+		this.stock = stock;
+
+		this.stockBought = 0;
+		this.code = code;
+	}
+
+	/**
+	 * increase amount of stock of an item current user is trying to buy
+	 */
+	public void increaseStockBought() {
+		stockBought++;
+	}
+
+	/**
+	 * reset amount of stock of an item for next user
+	 */
+	public void resetStockBought() {
+		stockBought = 0;
+	}
+
+	/**
+	 * once purchased items, update how much stock of an item is left
+	 */
+	public void reduceStock() { // when buy a thing(s)
+		stock -= stockBought;// stock--;
+	}
+
+	/**
+	 * accessor method
+	 * 
+	 * @return name of item
+	 */
+	public String getName() {
+		return name;
+	}
+
+	public double getPrice() {
+		return price;
+	}
+
+	public int getStock() {
+		return stock;
+	}
+
+	public int getStockBought() {
+		return stockBought;
+	}
+
+	public String getCode() {
+		return code;
+	}
+
+	@Override
+	public String toString() {
+
+		String priceF = new DecimalFormat("#0.00").format(price); // 2 dec palce
+		return name + " $" + priceF + " (stock:" + stock + ")"; // \n not help gui// could add code-but is in lable
+
+	}
+
+}
+
+
+//=========================================================================================================
+
+
+
+
+package cp213;
+
+import java.util.ArrayList;
+
+/**
+ * Vending machine model. Contains the algorithms for vending products, handling
+ * change and inventory, and working with credit. Should not perform any GUI
+ * work of any kind.
+ * 
+ */
+public class VendModel {
+
+	double total;
+	double cashInputted;
+	double change; // change owed
+	double changeLeft; // in machine
+
+	boolean enteredLetter, enteredNum;
+	String codeEntered;
+
+	ArrayList<Item> itemsInInventory; // fill machine with items
+	ArrayList<Item> itemsPurchased; // each time buy a thing, add to list?
+
+	/**
+	 * constructor
+	 */
+	public VendModel() {
+		total = 0.0;
+		cashInputted = 0.0;
+		change = 0.0;
+		changeLeft = 5;
+
+		enteredLetter = false;
+		enteredNum = false;
+		codeEntered = "";
+
+		itemsInInventory = new ArrayList<Item>();/// can fill this here
+		itemsPurchased = new ArrayList<Item>();
+
+	}
+
+	/**
+	 * add itme to inventory - array list
+	 */
+	public void addToInventory(Item item) {
+		itemsInInventory.add(item);
+	}
+
+	/**
+	 * click a button with letter. helps create a code
+	 * 
+	 * @param letter
+	 *            the letter on the button
+	 */
+	public void clickLetter(String letter) {
+		if (enteredLetter == true) { // try again
+			resetValidCode();
+		}
+
+		enteredLetter = true;
+		enteredNum = false;
+		codeEntered += letter;
+	}
+
+	/**
+	 * click a button with number. helps create a code.
+	 * 
+	 * @param num
+	 *            the number on the button
+	 * @return True if no stock error(went smoothly). else false(not enough stock to
+	 *         provide item)
+	 */
+
+	public boolean clickNum(String num) {
+		enteredNum = true;
+
+		boolean noStockErorr = true;
+		if (enteredLetter == true) { // make sure only right after..
+			codeEntered += num;
+
+			Item item = new Item();
+			for (Item i : itemsInInventory) {
+				if (i.getCode().equals(codeEntered)) { // if found
+					item = i;
+					break;
+				}
+			}
+
+			if (item.getName() == "testItem") { // should be impposibel to get here since buttosn
+				System.out.println("ERROR:   not an item");// defualt name --do nothing //debug
+
+			} else {
+
+				if (item.getStock() == 0 || item.getStockBought() + 1 > item.getStock()) {
+					// System.out.println("ERROR: out of stock");
+					noStockErorr = false;
+				} else {
+					item.increaseStockBought();
+					itemsPurchased.add(item);
+					total += item.getPrice();
+				}
+
+			}
+		}
+
+		resetValidCode();// either way reset after
+		return noStockErorr;
+	}
+
+	/*
+	 * helper method. to ensure the object code is ok
+	 */
+	private void resetValidCode() {
+		enteredLetter = false;
+		enteredNum = false;
+		codeEntered = "";
+	}
+
+	/*
+	 * clicking quit/cancle button refund money inputted if need.
+	 */
+	public void clickQuit() {
+		resetValidCode();
+
+		if (cashInputted > 0.0001) { // refund amount paid if any
+			dispenseChange(cashInputted);// dispense change where change = cash in
+		}
+	}
+
+	/*
+	 * clicking finish button
+	 */
+	public void clickFinish() {
+		resetValidCode();
+
+	}
+
+	/*
+	 * clicking cash button
+	 */
+	public void clickCash() {
+		resetValidCode();
+	}
+
+	/**
+	 * helper method for pressing cash/bills buttons
+	 * 
+	 * @return 0 if not paid enough. 1 if paid enough and enough change. 2 if change
+	 *         error ( not enough change in machine)
+	 */
+	private int checkAmount() {
+
+		int val = 0;
+		// 0: not enough-do nothing. 1 ok - items and change. 2 - change error-change
+
+		if (cashInputted >= total) { // enough in = true // should dispsene itmes and / or coins
+
+			change = cashInputted - total;// computeChange();
+
+			if (change <= changeLeft) {// (checkValidChange())
+				changeLeft = changeLeft + cashInputted - change;
+
+				dispenseItems();
+				dispenseChange(change);
+				val = 1; // ok
+
+			} else { // not enough chaneg in machine
+				System.out.println("change error" + change + " " + changeLeft);
+				dispenseChange(cashInputted);// give money back
+				itemsPurchased = new ArrayList<Item>(); // cant get antyhing
+				val = 2; // err
+			}
+
+		}
+		return val;
+
+	}
+
+	/**
+	 * button for clicking 5 cents
+	 * 
+	 * @return 0 if not paid enough. 1 if paid enough and enough change. 2 if change
+	 *         error ( not enough change in machine)
+	 */
+	public int clickFiveCents() {
+		resetValidCode();
+		cashInputted += 0.05;
+		return checkAmount();
+	}
+
+	public int clickTenCents() {
+		resetValidCode();
+		cashInputted += 0.10;
+		return checkAmount();
+	}
+
+	public int clickTwentyFiveCents() {
+		resetValidCode();
+		cashInputted += 0.25;
+		return checkAmount();
+	}
+
+	public int clickOneDollars() {
+		resetValidCode();
+		cashInputted += 1;
+		return checkAmount();
+	}
+
+	public int clickTwoDollars() {
+
+		resetValidCode();
+		cashInputted += 2;
+		return checkAmount();
+	}
+
+	public int clickFiveDollars() {
+
+		resetValidCode();
+		cashInputted += 5;
+		return checkAmount();
+	}
+
+	public int clickTenDollars() {
+
+		resetValidCode();
+		cashInputted += 10;
+		return checkAmount();
+	}
+
+	private void dispenseItems() {
+		for (Item item : itemsInInventory) {// travers all items jsut once-inccase mutliepls
+			if (item.getStockBought() > 0) { // bought at least 1 of an item
+				item.reduceStock();// update stock
+			}
+		}
+	}
+
+	private void dispenseChange(double amt) {
+		change = amt; // change can be cash in --refund// or change -- if success
+	}
+
+	/**
+	 * reset machine for next personto use
+	 */
+	public void reset() {
+		// reset total , change owed, cash inputed
+		// but keep stock chnged and change left for next person
+
+		total = 0.0;
+		cashInputted = 0.0;
+		change = 0.0;
+
+		enteredLetter = false;
+		enteredNum = false;
+		codeEntered = "";
+
+		itemsPurchased = new ArrayList<Item>();
+
+		for (Item item : itemsInInventory) {// reset stock bough -for next person
+			item.resetStockBought();
+		}
+
+	}
+
+	/**
+	 * accessor method
+	 * 
+	 * @return current total that needs to be paid
+	 */
+	public double getTotal() {
+		return total;
+	}
+
+	/**
+	 * accessor method
+	 * 
+	 * @return current cash to pay for items
+	 */
+	public double getCashInputted() {
+		return cashInputted;
+	}
+
+	/**
+	 * accessor method
+	 * 
+	 * @return change provided by machine
+	 */
+
+	public double getChange() { // change owed
+		return change;
+	}
+
+	/**
+	 * accessor method
+	 * 
+	 * @return change remaining in machine
+	 */
+	public double getChangeLeft() {
+		return changeLeft;
+	}
+
+	/**
+	 * accessor method
+	 * 
+	 * @return items current person bought from machine
+	 */
+	public ArrayList<Item> getItemsPurchased() {
+		return itemsPurchased;
+	}
+
+	/**
+	 * accessor method
+	 * 
+	 * @return items machine has stored
+	 */
+	public ArrayList<Item> getItemsInInventory() {// dont need?-but good to have
+		return itemsInInventory;
+
+	}
+
+	/**
+	 * print the object nicely
+	 */
+	@Override
+	public String toString() {
+		return "[vendmodel: " + total + " " + cashInputted + " " + change + " " + changeLeft + "]";
+	}
+
+}
+
+
+
+
+
+//=========================================================================================================
+
+
+
+
+package cp213; //cleaner version of assing
+
+import java.awt.BorderLayout;
+import java.awt.Color;
+import java.awt.GridBagConstraints;
+import java.awt.GridBagLayout;
+import java.awt.GridLayout;
+import java.awt.event.ActionEvent;
+import java.awt.event.ActionListener;
+import java.text.DecimalFormat;
+
+import javax.swing.JButton;
+import javax.swing.JFrame;
+import javax.swing.JLabel;
+import javax.swing.JPanel;
+import javax.swing.JTextField;
+
+/**
+ * Handles the GUI portion of the vending machine. May use other GUI classes for
+ * individual elements of the vending machine. Should use the VendModel for all
+ * control logic.
+ * 
+ */
+@SuppressWarnings("serial")
+public class VendView extends JPanel {
+
+	private VendModel model = null;
+
+	// INSTANCE VARS
+
+	private final String[] LETTERS = { "A", "B", "C", "D" }; // letters in key pad
+	private final String[] NUMBERS = { "1", "2", "3", "Quit" }; // nums and quit in key pad
+	private final String amts[] = { "10c", "25c", "1$", "2$", "5$", "10$" }; // for money options //5c handled dif
+
+	private Item[] items = { new Item("cookie", 1.45, 3, "A1"), new Item("chip", 3.50, 7, "A2"),
+			new Item("pepsi", 3.65, 2, "A3"), new Item("coke", 3.50, 1, "B1"), new Item("fish", 3.50, 4, "B2"),
+			new Item("leg", 2.50, 3, "B3"), new Item("rice", 1.50, 9, "C1"), new Item("chocolate", 2.6, 6, "C2"),
+			new Item("cake", 7.25, 3, "C3"), new Item("milk", 3.50, 6, "D1"), new Item("teeth", 3.5, 5, "D2"),
+			new Item("juice", 4.55, 3, "D3") }; // need 12 itesm
+
+	private int WIDTH = 500, HEIGHT = 700;
+
+	private JPanel displayPanel; // hold asll display itesm
+	private JPanel keyboardPanel; // lletter and numbers
+	private JPanel moneyPanel; // payment options ( coin/bill amoints)
+	private JPanel finishPanel;
+	private JPanel cashPanel; // cash option
+	private JPanel displayMoneyPanel; // display tot,paid,change(changeleft);
+	private JPanel flapPanel;
+
+	private JLabel displayTotal;
+	private JLabel displayCashInputted;
+	private JLabel displayChange;
+
+	private JTextField despenseText; // for disnpsensing
+
+	/**
+	 * constructor for view
+	 * 
+	 * @param model
+	 *            a vending machine model
+	 */
+	public VendView(VendModel model) {
+
+		this.model = model;
+
+		for (Item item : items) {// stock up machine
+			model.addToInventory(item);
+		}
+
+		this.setBackground(Color.BLUE);
+		this.setLayout(new GridBagLayout());
+		GridBagConstraints c = new GridBagConstraints();
+
+		JLabel machineName = new JLabel("Vendors R Us COPY");
+
+		// set instance vars - as panels
+		displayPanel = new JPanel();
+		keyboardPanel = new JPanel();
+		moneyPanel = new JPanel();
+		finishPanel = new JPanel();
+		cashPanel = new JPanel();
+		displayMoneyPanel = new JPanel();
+		flapPanel = new JPanel();
+
+		// double amt = model.getTotal();
+		displayTotal = new JLabel("total: $" + new DecimalFormat("#0.00").format((model.getTotal()))); // round 2 palces
+		displayCashInputted = new JLabel("paid: $" + new DecimalFormat("#0.00").format((model.getCashInputted())));
+		displayChange = new JLabel("change: $" + new DecimalFormat("#0.00").format(model.getChange())
+				+ " (left over change): $" + new DecimalFormat("#0.00").format((model.getChangeLeft())));
+
+		despenseText = new JTextField();
+
+		// SET COLORS--can change later
+
+		displayPanel.setBackground(Color.CYAN);
+		keyboardPanel.setBackground(Color.GREEN);
+		moneyPanel.setBackground(Color.YELLOW);
+		finishPanel.setBackground(Color.GRAY);
+		cashPanel.setBackground(Color.GRAY);// (Color.ORANGE);
+		displayMoneyPanel.setBackground(Color.ORANGE);// (Color.PINK);
+		flapPanel.setBackground(Color.RED);// (Color.GREEN);
+
+		// SET LAYOUTS
+		displayPanel.setLayout(new GridLayout(8, 6));
+		// double it 3 by 4 - since adding text and lables
+
+		JTextField field;
+		JLabel displayLabel;
+
+		int counter = 0;
+		int n = 3; // 3 itesm a row
+
+		for (int j = 0; j < 4; j++) { // 4 rows
+			for (int i = 0; i < n; i++) {
+
+				field = new JTextField(items[counter].toString());
+				counter++;
+				field.setEditable(false);// not editible-only dislays stuff
+				displayPanel.add(field);
+			} // 1 row of itesm
+
+			for (int i = 0; i < n; i++) {
+				String lab = LETTERS[j] + NUMBERS[i];// A + 1
+				displayLabel = new JLabel(lab);
+				displayPanel.add(displayLabel);
+			} // 1 row of lables
+		}
+
+		keyboardPanel.setLayout(new GridLayout(4, 2));
+		moneyPanel.setLayout(new GridLayout(3, 3));
+		// finihs, cash, disp, flap -- flow latyout by defualt
+		displayMoneyPanel.setLayout(new BorderLayout());
+
+		// ADD BUTTONS (and money panels and display lables)
+		// need actionlisters for buttons
+
+		n = 4;
+		JButton keyboardButton;
+		for (int i = 0; i < n; i++) {
+			String lab = LETTERS[i];
+			keyboardButton = new JButton(lab);
+
+			keyboardButton.addActionListener(new LetterListener());
+			keyboardPanel.add(keyboardButton);
+		}
+
+		for (int i = 0; i < n; i++) {
+			String lab = NUMBERS[i];
+			keyboardButton = new JButton(lab);
+
+			if (lab.equals("Quit")) // special case--dif listenre?
+				keyboardButton.addActionListener(new QuitListener());
+			else
+				keyboardButton.addActionListener(new NumberListener());
+
+			keyboardPanel.add(keyboardButton);
+		}
+
+		// first row of money panel -is dif
+		JButton finishButton = new JButton("Finish");
+		finishButton.addActionListener(new FinishListener()); // call private meth
+		finishPanel.add(finishButton);
+		moneyPanel.add(finishPanel);
+
+		JButton moneyButton = new JButton("5c");
+		moneyButton.addActionListener(new AmountListener());
+		moneyPanel.add(moneyButton);
+
+		JButton cashButton = new JButton("Cash");
+		cashButton.addActionListener(new CashListener());
+		cashPanel.add(cashButton);
+		moneyPanel.add(cashPanel);
+
+		int amtsCounter = 0;
+		n = 6;
+		for (int i = 0; i < n; i++) {
+			moneyButton = new JButton(amts[amtsCounter]);
+			amtsCounter++;
+
+			moneyButton.addActionListener(new AmountListener());
+			moneyPanel.add(moneyButton);
+		}
+
+		displayMoneyPanel.add(displayTotal, BorderLayout.NORTH);
+		displayMoneyPanel.add(displayCashInputted, BorderLayout.CENTER);
+		displayMoneyPanel.add(displayChange, BorderLayout.SOUTH);
+
+		// ADD TO FLAP
+		JPanel smallFlap = new JPanel();
+		smallFlap.add(new JLabel("Enjoy Your Meal"));
+		flapPanel.add(smallFlap);
+
+		// ADD PANELS and lable TO THIS thing //xecpct for money??
+
+		c.fill = GridBagConstraints.HORIZONTAL; // vert?
+		c.weightx = 0.5;
+		c.gridx = 10;
+		c.gridy = 0;
+		c.gridheight = 3;// 4 4 // 2 rows ?
+		c.gridwidth = 2; // 2 cols ?
+
+		JPanel smallNameFlap = new JPanel();
+		smallNameFlap.add(machineName);
+		this.add(smallNameFlap, c);
+
+		c.fill = GridBagConstraints.HORIZONTAL; // vert?
+		c.weightx = 0.5;
+		c.gridx = 1;
+		c.gridy = 1;
+		c.gridheight = 10; // 2 rows ?
+		c.gridwidth = 5; // 2 cols ?
+		this.add(displayPanel, c);
+
+		c.fill = GridBagConstraints.HORIZONTAL;
+		c.weightx = 0.5;
+		c.gridx = 13;
+		c.gridy = 2;
+		c.gridheight = 10; // 2 rows wide?
+		c.gridwidth = 5;
+		this.add(keyboardPanel, c);
+
+		c.fill = GridBagConstraints.HORIZONTAL;
+		c.weightx = 0.5;
+		c.gridx = 12;// c.gridx = 2;
+		c.gridy = 12;// c.gridy = 0;
+		c.gridheight = 3; // 2 rows wide?
+		c.gridwidth = 5;
+		// c.ipady = 20;
+		this.add(moneyPanel, c);
+
+		c.fill = GridBagConstraints.HORIZONTAL;
+		c.weightx = 0.5;
+		c.gridx = 13;// 13
+		c.gridy = 11;// 11;
+		c.ipady = 10;// tall
+		c.gridheight = 1; // 2 rows wide?
+		c.gridwidth = 5;
+		this.add(displayMoneyPanel, c);
+
+		c.fill = GridBagConstraints.HORIZONTAL;
+		c.weightx = 0.5;
+		c.gridx = 1;
+		c.gridy = 12;
+		c.ipady = 100;// 40; // tall
+		c.gridheight = 2; // 2 rows wide?
+		c.gridwidth = 5;
+		this.add(flapPanel, c);
+
+	}
+
+	/**
+	 * 
+	 * inner class. to listen for a letter button clicked
+	 *
+	 */
+	// INNER CLASS- to listen to buttons
+	private class LetterListener implements ActionListener {
+		public void actionPerformed(ActionEvent e) {
+			model.clickLetter(e.getActionCommand());// model.clickLetter();
+		}
+	}
+
+	/**
+	 * 
+	 * inner class. to listen for a quit button clicked
+	 *
+	 */
+
+	private class QuitListener implements ActionListener { // innet class
+		public void actionPerformed(ActionEvent e) {
+			model.clickQuit();
+			updateDisplay();
+			showWindow(0);// showWind();
+			model.reset(); // after display
+		}
+	}
+
+	/**
+	 * 
+	 * inner class. to listen for a number button clicked
+	 *
+	 */
+	private class NumberListener implements ActionListener {
+		public void actionPerformed(ActionEvent e) {
+
+			boolean noStockErr = model.clickNum(e.getActionCommand());
+
+			if (noStockErr == false) { // was error
+				showWindow(3);
+			}
+
+			updateDisplay();
+		}
+	}
+
+	/**
+	 * 
+	 * inner class. to listen for a finish button clicked
+	 *
+	 */
+	private class FinishListener implements ActionListener {
+		public void actionPerformed(ActionEvent e) {
+			model.clickFinish();
+		}
+	}
+
+	/**
+	 * 
+	 * inner class. to listen for a cash button clicked
+	 *
+	 */
+	private class CashListener implements ActionListener {
+		public void actionPerformed(ActionEvent e) {
+			model.clickCash();
+		}
+	}
+
+	/**
+	 * 
+	 * inner class. to listen for a button with a cash/bill amount clicked
+	 *
+	 */
+	private class AmountListener implements ActionListener { // for money to input
+		public void actionPerformed(ActionEvent e) {
+
+			int valid = 0;
+
+			String in = e.getActionCommand();
+
+			if (in.equals("5c"))
+				valid = model.clickFiveCents();// model.clickFiveCents();
+			else if (in.equals("10c"))
+				valid = model.clickTenCents();
+			else if (in.equals("25c"))
+				valid = model.clickTwentyFiveCents();
+			else if (in.equals("1$"))
+				valid = model.clickOneDollars();
+			else if (in.equals("2$"))
+				valid = model.clickTwoDollars();
+			else if (in.equals("5$"))
+				valid = model.clickFiveDollars();
+			else if (in.equals("10$"))
+				valid = model.clickTenDollars();
+
+			else
+				System.out.println("ERR");
+			updateDisplay();
+
+			if (valid == 1) { // || valid == 2) {// if (valid) {
+				showWindow(1);// showWind();
+				updateDisplayStock();
+				model.reset();// reset after display
+
+			} else if (valid == 2) {
+				showWindow(2);
+				updateDisplayStock(); // should look sameif works
+				model.reset();
+			}
+
+		}
+	}
+
+	/**
+	 * opens a new window to dispense change and or items bought
+	 * 
+	 * @param state
+	 *            0 if called by quit button
+	 * 
+	 *            1 if valid purchase-can dispense moeny and change
+	 * 
+	 *            2 if change error(not enough change in machine)- dispense cash
+	 *            inputted
+	 * 
+	 *            3 if stock error(not enough stock of an item) - just to notify
+	 *            user. can keep going
+	 */
+	public void showWindow(int state) {
+		// quit -- dispense change - state 0 // valid purhcase. - items and change-- 1
+		// change error - change -- 2// stcok erro - 3 -- can keep going tho
+
+		String s = "";
+
+		if (state == 0) {
+			s = "QUIT. dispensing cash inputted";
+		} else if (state == 1) {
+			s = "ITEMS BOUGHT:\n\n";
+			for (Item i : items) {// for (Item i : ip) {
+				if (i.getStockBought() > 0)
+					s += i.getName() + " * " + i.getStockBought() + ",\n";
+			}
+
+		} else if (state == 2) {
+			s = "CHANGE ERROR. not enough change in machine. dispensing cash inputted";
+
+		} else if (state != 3) {// shouldnt get
+			s = "ERR??";
+		}
+
+		s += "\n\n\n\nCHANGE:   $";
+
+		if (model.getChange() >= 0)
+			s += new DecimalFormat("#0.00").format(model.getChange());
+		else// dont show neg--sholdnt be posible?
+			s += "0.00";
+
+		if (state == 3) { // overirde whatever in s
+			s = "STOCK ERROR. that item is out of stock. cost wont be added to total. contiue";
+		}
+
+		despenseText = new JTextField(s);
+
+		JFrame f = new JFrame("dispensing...");
+
+		f.setSize(WIDTH, HEIGHT);// f.pack;
+		f.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+		f.getContentPane().setBackground(Color.MAGENTA);
+
+		JLabel lable = new JLabel(despenseText.getText()); // can callby name
+		f.add(lable);
+
+		f.setVisible(true);
+
+	}
+
+	/**
+	 * update display of displayMoneyPanel (with total,cash, change) for gui front
+	 */
+	private void updateDisplay() { // totoal paid and chagen on front
+		// panel remove each labled
+		displayMoneyPanel.remove(displayTotal);
+		displayMoneyPanel.remove(displayCashInputted);
+		displayMoneyPanel.remove(displayChange);
+		// vending machine remove panel
+		this.remove(displayMoneyPanel);
+
+		// new values for panels
+		displayMoneyPanel.setLayout(new BorderLayout()); // put over old??
+
+		displayTotal = new JLabel("total: $" + new DecimalFormat("#0.00").format((model.getTotal()))); // round 2 palces
+		displayCashInputted = new JLabel("paid: $" + new DecimalFormat("#0.00").format((model.getCashInputted())));
+		displayChange = new JLabel("change: $" + new DecimalFormat("#0.00").format(model.getChange())
+				+ " (left over change): $" + new DecimalFormat("#0.00").format((model.getChangeLeft())));
+
+		displayMoneyPanel.add(displayTotal, BorderLayout.NORTH);
+		displayMoneyPanel.add(displayCashInputted, BorderLayout.CENTER);
+		displayMoneyPanel.add(displayChange, BorderLayout.SOUTH);
+
+		// put panel exactly where it was
+		GridBagConstraints c = new GridBagConstraints();
+
+		c.fill = GridBagConstraints.HORIZONTAL;
+		c.weightx = 0.5;
+		c.gridx = 13;// 13
+		c.gridy = 11;// 11;
+		c.ipady = 10;// tall
+		c.gridheight = 1; // 2 rows wide?
+		c.gridwidth = 5;
+		this.add(displayMoneyPanel, c);
+
+		// update gui
+		this.validate();
+		this.repaint(); // repaint making updatee disply bad??
+
+		updateDisplayStock();
+	}
+
+	// detele old panel
+	/**
+	 * update display of displayPanel (with item stock ) for gui front
+	 */
+	private void updateDisplayStock() {
+
+		for (int i = 0; i < 12; i++) { // array vs arraylist // want model items. not view items
+			items[i] = model.getItemsInInventory().get(i);
+		}
+
+		displayPanel = new JPanel();
+		displayPanel.setBackground(Color.RED);// not do?
+		displayPanel.setLayout(new GridLayout(8, 6));
+
+		JTextField field; // dont need as instnace vars?
+		JLabel displayLabel;
+
+		int counter = 0;
+		int n = 3; // 3 itesm a row
+
+		for (int j = 0; j < 4; j++) { // 4 rows
+			for (int i = 0; i < n; i++) {
+
+				field = new JTextField(items[counter].toString());// + "UPDATED");
+				counter++;
+				field.setEditable(false);// not editible-only dislays stuff
+				displayPanel.add(field);
+			} // 1 row of itesm
+
+			for (int i = 0; i < n; i++) {
+				String lab = LETTERS[j] + NUMBERS[i];// A + 1
+				displayLabel = new JLabel(lab);
+				displayPanel.add(displayLabel);
+			} // 1 row of lables
+		}
+
+		// put panel exactly where it was
+		GridBagConstraints c = new GridBagConstraints();
+
+		c.fill = GridBagConstraints.HORIZONTAL; // vert?
+		c.weightx = 0.5;
+		c.gridx = 1;
+		c.gridy = 1;
+		// c.ipady = 40; // taller
+		c.gridheight = 10; // 2 rows ?
+		c.gridwidth = 5; // 2 cols ?
+		this.add(displayPanel, c);
+
+		// update gui
+
+		this.validate();
+		this.repaint();
+	}
+}
